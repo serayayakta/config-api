@@ -1,5 +1,6 @@
 import express from 'express';
 import { db } from '../firebase.js';
+import admin from 'firebase-admin';
 
 const router = express.Router();
 
@@ -51,3 +52,27 @@ router.put('/:key', async (req, res) => {
     res.status(500).json({ error: 'Failed to update config' });
   }
 });
+
+
+router.delete('/:key', async (req, res) => {
+  const clientKey = req.header('x-api-key');
+  if (clientKey !== API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { key } = req.params;
+
+  try {
+    const docRef = db.collection('config').doc('main');
+    await docRef.update({
+      [key]: admin.firestore.FieldValue.delete(),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to delete field:', err);
+    res.status(500).json({ error: 'Failed to delete field' });
+  }
+});
+
+export default router;
