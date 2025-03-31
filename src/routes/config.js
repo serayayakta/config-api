@@ -26,4 +26,28 @@ router.get('/', async (req, res) => {
   }
 });
 
-export default router;
+router.put('/:key', async (req, res) => {
+  const clientKey = req.header('x-api-key');
+  if (clientKey !== process.env.API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { value, description } = req.body;
+  const { key } = req.params;
+
+  if (!value) return res.status(400).json({ error: 'Missing value' });
+
+  try {
+    const docRef = db.collection('config').doc('main');
+    await docRef.update({
+      [key]: {
+        value,
+        description: description || '',
+      },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update config' });
+  }
+});
