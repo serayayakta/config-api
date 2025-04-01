@@ -40,19 +40,27 @@ router.put('/:key', async (req, res) => {
 
   try {
     const docRef = db.collection('config').doc('main');
+    const docSnap = await docRef.get();
+    const existingData = docSnap.exists ? docSnap.data() : {};
+    const existingField = existingData[key];
+
+    const now = new Date().toISOString();
+
     await docRef.update({
       [key]: {
         value,
         description: description || '',
+        createdAt: existingField?.createdAt || now,
+        updatedAt: now,
       },
     });
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update config' });
   }
 });
-
 
 router.delete('/:key', async (req, res) => {
   const clientKey = req.header('x-api-key');
