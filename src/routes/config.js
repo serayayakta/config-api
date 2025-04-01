@@ -33,29 +33,44 @@ router.put('/:key', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { value, description } = req.body;
+  const { value, description, clientUpdatedAt } = req.body;
   const { key } = req.params;
 
-  if (!value) return res.status(400).json({ error: 'Missing value' });
+  if (!value || !clientUpdatedAt) {
+    return res.status(400).json({ error: 'Missing value or updated timestamp' });
+  }
 
   try {
     const docRef = db.collection('config').doc('main');
     const docSnap = await docRef.get();
-    const existingData = docSnap.exists ? docSnap.data() : {};
-    const existingField = existingData[key];
 
-    const now = new Date().toISOString();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const current = docSnap.data()?.[key];
+
+    if (!current) {
+      return res.status(404).json({ error: 'Key not found' });
+    }
+
+    // Conflict detection
+    if (current.updatedAt && current.updatedAt !== clientUpdatedAt) {
+      return res.status(409).json({ error: 'Conflict detected' });
+    }
+
+    const updatedAt = Date.now();
 
     await docRef.update({
       [key]: {
+        ...current,
         value,
         description: description || '',
-        createdAt: existingField?.createdAt || now,
-        updatedAt: now,
+        updatedAt,
       },
     });
 
-    res.json({ success: true });
+    res.json({ success: true, updatedAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update config' });
